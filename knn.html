@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>k nearest neighbour</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+        <script type="text/javascript" src="d3.v3.min.js" charset="utf-8"></script>
+        <script type="text/javascript" src="editablegrid-2.0.1.js"></script>
+        <script type="text/css" src="editablegrid-2.0.1.css"></script>
+        <style type="text/css"> 
+table.grid { border-collapse: collapse; border: 1px solid #CCB; width: 100%; }
+table.grid td, table.grid th { padding: 5px; border: 1px solid #E0E0E0; }
+table.grid th { background: #E5E5E5; text-align: left; }
+input.invalid { background: red; color: #FDFDFD; }
+
+path {
+    fill: none;
+    stroke: black;
+    stroke-width: 2px;
+}
+line {
+    stroke: black;
+    stroke-width: 2px;
+}
+
+text {
+    font-size: 18px;
+}
+        </style>
+    </head>
+
+    <body>
+        <h1>k nearest neighbour</h1>
+        <div>
+            <div style="width: 30%; float: left;">
+                <label>k = </label>
+                <input id="n" type="text" value="3" size="2" onchange="changeN();">
+                <div id="table"></div>
+                <input type="button" value="Add datum" onclick="addDatum();">
+            </div>
+            <div id="graph" style="width: 70%; float: right;"></div>
+        </div>
+        <script type="text/javascript">
+        var id = 0, n = +d3.select("#n").node().value, user = [],
+            table, svg, data;
+        var color = d3.scale.ordinal()
+            .domain(["one", "two", "three"])
+            .range(["red", "blue", "green"]);
+
+        function distance(ground, q) {
+            return Math.sqrt(Math.pow(ground.values.x - q.x, 2)
+                + Math.pow(ground.values.y - q.y, 2));
+        }
+
+        function knn(datum, n) {
+            var distances = data.map(function(d) {
+                return { d: distance(d, datum), c: d.values.class };
+            });
+
+            distances.sort(function(a, b) { return a.d - b.d; });
+            //console.log(distances);
+
+            var votes = {};
+            distances.slice(0, n).forEach(function(d) {
+                votes[d.c] || (votes[d.c] = 0);
+                votes[d.c]++;
+            });
+            //console.log(votes);
+
+            return d3.entries(votes)
+                .sort(function(a, b) { return b.value - a.value; })[0].key;
+        }
+
+        function changeN() {
+            n = +d3.select("#n").node().value;
+            user.forEach(function(u) {
+                u.class = knn(u, n);
+            });
+            updateGraph();
+        }
+
+        function changed(rowIndex, columnIndex, oldValue, newValue) { 
+            data[table.getRowId(rowIndex)]
+                .values[table.getColumnName(columnIndex)] = newValue;
+
+            user.forEach(function(u) {
+                u.class = knn(u, n);
+            });
+            updateGraph();
+		}
+
+        function addDatum() {
+            var obj = {id: id, values: {x: 0, y: 0, class: "one"} };
+            data.push(obj);
+            table.append(id++, obj.values, true, true);
+            updateGraph();
+        }
+
+        function updateGraph() {
+            var width = window.innerWidth * 0.7,
+                height = window.innerHeight * 0.8,
+                right = 20,
+                top = 20,
+                left = 50,
+                bottom = 50;
+
+            var xex = d3.extent(data, function(d) { return d.values.x; }),
+                yex = d3.extent(data, function(d) { return d.values.y; });
+            var xscale = d3.scale.linear()
+                .domain([xex[0] - 1, xex[1] + 1])
+                .range([left, width - right]);
+            var yscale = d3.scale.linear()
+                .domain([yex[0] - 1, yex[1] + 1])
+                .range([height - bottom, top]);
+
+            var circles = svg.selectAll("circle.ground")
+                .data(data, function(d) { return d.id; });
+
+            circles.enter().append("circle")
+                .classed("ground", true)
+                .attr("cx", xscale.range()[0])
+                .attr("cy", xscale.range()[1])
+                .attr("r", 20);
+
+            circles.transition()
+                .attr("cx", function(d) { return xscale(d.values.x); })
+                .attr("cy", function(d) { return yscale(d.values.y); })
+                .style("fill", function(d) { return color(d.values.class); });
+
+            circles.exit().remove();
+
+            circles = svg.selectAll("circle.user").data(user);
+
+            circles.enter().append("circle")
+                .classed("user", true)
+                .attr("cx", xscale.range()[0])
+                .attr("cy", xscale.range()[1])
+                .attr("r", 10);
+
+            circles.transition()
+                .attr("cx", function(d) { return xscale(d.x); })
+                .attr("cy", function(d) { return yscale(d.y); })
+                .style("fill", function(d) { return color(d.class); });
+
+            circles.exit().remove();
+
+            svg.select(".xaxis")
+                .attr("transform", "translate(0," + (height-bottom) + ")")
+                .transition()
+                .call(d3.svg.axis().scale(xscale).orient("bottom"));
+            svg.select(".yaxis")
+                .attr("transform", "translate(" + left + ",0)")
+                .transition()
+                .call(d3.svg.axis().scale(yscale).orient("left"));
+
+            svg.on("click", function() {
+                var x = xscale.invert(d3.mouse(this)[0]),
+                    y = yscale.invert(d3.mouse(this)[1]),
+                    d = {x: x, y: y};
+
+                d.class = knn(d, n);
+
+                user.push(d);
+                updateGraph();
+            });
+        }
+
+        (function() {
+				var metadata = [];
+				metadata.push({ name: "x", label: "x", datatype: "integer", editable: true});
+				metadata.push({ name: "y", label: "y", datatype: "integer", editable: true});
+				metadata.push({ name: "class", label: "class", datatype: "string", editable: true});
+
+				metadata[2].values = {"one": "one", "two": "two", "three":
+                    "three"};
+
+                data = [
+                    { id: id++, values: { x: 1, y: 2, class: "one" } },
+                    { id: id++, values: { x: 5, y: 4, class: "one" } },
+                    { id: id++, values: { x: 0, y: 10, class: "two" } },
+                    { id: id++, values: { x: 4, y: 8, class: "two" } },
+                    { id: id++, values: { x: 7, y: 3, class: "three" } }
+                ];
+		         
+                table = new EditableGrid("kNNGrid", {modelChanged: changed});
+				table.load({"metadata": metadata, "data": data});
+				table.renderGrid("table", "grid");
+
+                svg = d3.select("#graph").append("svg")
+                    .attr("width", "100%")
+                    .attr("height", 0.8 * window.innerHeight);
+
+                svg.append("g").classed("xaxis", true);
+                svg.append("g").classed("yaxis", true);
+
+                updateGraph();
+        })();
+        </script>
+    </body>
+</html>
