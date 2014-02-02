@@ -33,7 +33,7 @@ text {
         <div>
             <div style="width: 30%; float: left;">
                 <label>k = </label>
-                <input id="n" type="text" value="3" size="2" onchange="changeN();">
+                <input id="n" type="text" value="1" size="2" onchange="changeN();">
                 <div id="table"></div>
                 <input type="button" value="Add datum" onclick="addDatum();">
             </div>
@@ -41,7 +41,7 @@ text {
         </div>
         <script type="text/javascript">
         var id = 0, n = +d3.select("#n").node().value, user = [],
-            table, svg, data;
+            table, svg, arrows, data;
         var color = d3.scale.ordinal()
             .domain(["one", "two", "three"])
             .range(["red", "blue", "green"]);
@@ -53,7 +53,8 @@ text {
 
         function knn(datum, n) {
             var distances = data.map(function(d) {
-                return { d: distance(d, datum), c: d.values.class };
+                return { d: distance(d, datum), c: d.values.class,
+                    x: d.values.x, y: d.values.y };
             });
 
             distances.sort(function(a, b) { return a.d - b.d; });
@@ -66,14 +67,16 @@ text {
             });
             //console.log(votes);
 
-            return d3.entries(votes)
+            datum.distances = distances;
+
+            datum.class = d3.entries(votes)
                 .sort(function(a, b) { return b.value - a.value; })[0].key;
         }
 
         function changeN() {
             n = +d3.select("#n").node().value;
             user.forEach(function(u) {
-                u.class = knn(u, n);
+                knn(u, n);
             });
             updateGraph();
         }
@@ -83,7 +86,7 @@ text {
                 .values[table.getColumnName(columnIndex)] = newValue;
 
             user.forEach(function(u) {
-                u.class = knn(u, n);
+                knn(u, n);
             });
             updateGraph();
 		}
@@ -139,6 +142,34 @@ text {
                 .attr("cy", function(d) { return yscale(d.y); })
                 .style("fill", function(d) { return color(d.class); });
 
+            circles
+                .on("mouseout", function() { arrows.selectAll("*").remove(); })
+                .on("mouseover", function(d) {
+                    for(var i = 0; i < n; i++) {
+                        arrows.append("line")
+                            .attr("x1", xscale(d.distances[i].x))
+                            .attr("y1", yscale(d.distances[i].y))
+                            .attr("x2", xscale(d.x))
+                            .attr("y2", yscale(d.y))
+                            .style("stroke", color(d.distances[i].c))
+                            .attr("marker-end", "url(#arrow-" + d.distances[i].c + ")");
+                        arrows.append("text")
+                            .style("text-anchor", "middle")
+                            .style("alignment-baseline", "middle")
+                            .style("stroke", "white")
+                            .style("stroke-width", 5)
+                            .attr("x", xscale(d.x + (d.distances[i].x - d.x) / 2))
+                            .attr("y", yscale(d.y + (d.distances[i].y - d.y) / 2))
+                            .text(Math.round(d.distances[i].d * 100) / 100);
+                        arrows.append("text")
+                            .style("text-anchor", "middle")
+                            .style("alignment-baseline", "middle")
+                            .attr("x", xscale(d.x + (d.distances[i].x - d.x) / 2))
+                            .attr("y", yscale(d.y + (d.distances[i].y - d.y) / 2))
+                            .text(Math.round(d.distances[i].d * 100) / 100);
+                    }
+                });
+
             circles.exit().remove();
 
             svg.select(".xaxis")
@@ -155,7 +186,7 @@ text {
                     y = yscale.invert(d3.mouse(this)[1]),
                     d = {x: x, y: y};
 
-                d.class = knn(d, n);
+                knn(d, n);
 
                 user.push(d);
                 updateGraph();
@@ -186,6 +217,22 @@ text {
                 svg = d3.select("#graph").append("svg")
                     .attr("width", "100%")
                     .attr("height", 0.8 * window.innerHeight);
+
+                svg.append("defs")
+                   .selectAll("marker").data(color.domain())
+                   .enter().append("marker")
+                   .attr("id", function(d) { return "arrow-" + d; })
+                   .attr("viewBox", "0 -5 10 10")
+                   .attr("refX", 18)
+                   .attr("markerWidth", 6)
+                   .attr("markerHeight", 6)
+                   .attr("orient", "auto")
+                  .append("path")
+                   .style("fill", function(d) { return color(d); })
+                   .style("stroke", "none")
+                   .attr("d", "M0,-5L10,0L0,5");
+
+                arrows = svg.append("g");
 
                 svg.append("g").classed("xaxis", true);
                 svg.append("g").classed("yaxis", true);
