@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Decision tree</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+        <script type="text/javascript" src="d3.v3.min.js" charset="utf-8"></script>
+        <script type="text/javascript" src="editablegrid-2.0.1.js"></script>
+        <script type="text/css" src="editablegrid-2.0.1.css"></script>
+        <style type="text/css"> 
+table.grid { border-collapse: collapse; border: 1px solid #CCB; width: 100%; }
+table.grid td, table.grid th { padding: 5px; border: 1px solid #E0E0E0; }
+table.grid th { background: #E5E5E5; text-align: left; }
+input.invalid { background: red; color: #FDFDFD; }
+
+path {
+    fill: none;
+    stroke: black;
+    stroke-width: 2px;
+}
+line {
+    stroke: black;
+    stroke-width: 2px;
+}
+
+text {
+    font-size: 18px;
+}
+        </style>
+    </head>
+
+    <body>
+        <h1>Decision tree</h1>
+        <div>
+            <div style="width: 30%; float: left;">
+                <div id="table"></div>
+                <input type="button" value="Add datum" onclick="addDatum();">
+            </div>
+            <div id="graph" style="width: 70%; float: right;"></div>
+        </div>
+        <script type="text/javascript">
+        var id = 0,
+            table, svg, data;
+        var color = d3.scale.ordinal()
+            .domain(["yes", "no"])
+            .range(["red", "blue"]);
+
+        function changed(rowIndex, columnIndex, oldValue, newValue) { 
+            data[table.getRowId(rowIndex)]
+                .values[table.getColumnName(columnIndex)] = newValue;
+		}
+
+        function addDatum() {
+            var obj = {id: id, values: {t: "mild", h: "normal", w: "weak", class: "yes"} };
+            data.push(obj);
+            table.append(id++, obj.values, true, true);
+            updateGraph();
+        }
+
+        function entropy(_data) {
+            var classes = {};
+            _data.forEach(function(d) {
+                if(!classes[d.values.class]) classes[d.values.class] = [];
+                classes[d.values.class].push(d);
+            });
+            var e = 0;
+            for(c in classes) {
+                var p = classes[c].length / _data.length;
+                e -= p * (Math.log(p) / Math.log(2));
+            }
+            return e;
+        }
+
+        function entropyForAttributes(_data, attr) {
+            var ig = entropy(_data);
+
+            var values = {};
+            _data.forEach(function(d) {
+                if(!values[d.values[attr]]) values[d.values[attr]] = [];
+                values[d.values[attr]].push(d);
+            });
+
+            for(v in values) {
+                ig -= values[v].length/_data.length * entropy(values[v]);
+            }
+            return ig;
+        }
+
+        function bestSplit(_data, attrs) {
+            var vals = [];
+            for(var i = 0; i < attrs.length; i++) {
+                vals.push([attrs[i], entropyForAttributes(_data, attrs[i])]);
+            }
+            return vals.sort(function(a, b) { return b[1] - a[1]; });
+        }
+
+        function nextLevel(_data, attrs) {
+            if(attrs.length > 0) {
+                var t = bestSplit(data, attrs)[0][0];
+
+                var partition = {};
+                _data.forEach(function(d) {
+                    var val = d.values[t];
+                    if(!partition[val]) partition[val] = [];
+                    partition[val].push(d);
+                });
+
+                var level = { children: [] };
+
+                var newAttrs = JSON.parse(JSON.stringify(attrs));
+                newAttrs.splice(newAttrs.indexOf(t), 1);
+                for(val in partition) {
+                    var c = nextLevel(partition[val], newAttrs);
+                    if(c) {
+                        c.value = val;
+                        c.attr = t;
+                        level.children.push(c);
+                    }
+                }
+                return level;
+            } else {
+                return null;
+            }
+        }
+
+        function updateGraph() {
+            var width = window.innerWidth * 0.7 - 30,
+                height = window.innerHeight * 0.8 - 30;
+
+            var attrs = Object.keys(data[0].values);
+            attrs.splice(attrs.indexOf("class"), 1);
+            var tree = nextLevel(data, attrs);
+
+            var treeL = d3.layout.tree().size([width, height]);
+
+            var nodes = treeL.nodes(tree),
+                links = treeL.links(nodes);
+
+            var node = svg.selectAll("circle.node").data(nodes);
+
+            node.enter().append("circle")
+                .attr("class", "node")
+                .attr("r", 10)
+                .style("fill", "blue");
+
+            node.attr("cx", function(d) { return d.x; })
+                .attr("cy", function(d) { return d.y; });
+
+            node.exit().remove();
+
+            var link = svg.selectAll("line.link").data(links);
+
+            link.enter().insert("line", "circle")
+                .attr("class", "link");
+
+            link.attr("x1", function(d) { return d.source.x; })
+                .attr("x2", function(d) { return d.target.x; })
+                .attr("y1", function(d) { return d.source.y; })
+                .attr("y2", function(d) { return d.target.y; })
+                .attr("marker-end", "url(#arrow)");
+
+            link.exit().remove();
+
+            var labels = svg.selectAll("g.label").data(links);
+
+            var labelG = labels.enter().append("g")
+                .attr("text-anchor", "middle")
+                .attr("class", "label");
+
+            labelG.append("text")
+                .style("stroke", "white")
+                .style("stroke-width", 3);
+            labelG.append("text");
+
+            labels
+                .attr("transform", function(d) {
+                    var x = d.source.x + (d.target.x - d.source.x) * 4/5,
+                        y = d.source.y + (d.target.y - d.source.y) * 4/5;
+                    return "translate(" + x + "," + y + ")";
+                });
+            labels.selectAll("text")
+                .text(function(d) { return d.target.attr + " = " + d.target.value; });
+
+            labels.exit().remove();
+        }
+
+        (function() {
+				var metadata = [];
+				metadata.push({ name: "temperature", label: "Temperature", datatype:
+                    "string", editable: true, value: { "hot": "hot", "mild":
+                        "mild", "cool": "cool" } });
+				metadata.push({ name: "humidity", label: "Humidity", datatype:
+                    "string", editable: true, values: { "high": "high",
+                        "normal": "nomal" } });
+				metadata.push({ name: "wind", label: "Wind", datatype: "string",
+                    editable: true, value: { "weak": "weak", "strong": "strong" } });
+				metadata.push({ name: "class", label: "Play tennis", datatype:
+                    "string", editable: true, values: { "yes": "yes", "no": "no" } });
+
+
+                data = [
+                    { id: id++, values: { temperature: "hot", humidity: "high",
+                        wind: "weak", class: "no" } },
+                    { id: id++, values: { temperature: "hot", humidity: "high",
+                        wind: "strong", class: "no" } },
+                    { id: id++, values: { temperature: "hot", humidity: "high",
+                        wind: "weak", class: "yes" } },
+                    { id: id++, values: { temperature: "mild", humidity: "high",
+                        wind: "weak", class: "yes" } },
+                    { id: id++, values: { temperature: "cool", humidity:
+                        "normal", wind: "weak", class: "yes" } },
+                    { id: id++, values: { temperature: "cool", humidity:
+                        "normal", wind: "strong", class: "no" } },
+                    { id: id++, values: { temperature: "cool", humidity:
+                        "normal", wind: "strong", class: "yes" } }
+                ];
+		         
+                table = new EditableGrid("TreeGrid", {modelChanged: changed});
+				table.load({"metadata": metadata, "data": data});
+				table.renderGrid("table", "grid");
+
+                svg = d3.select("#graph").append("svg")
+                    .attr("width", "100%")
+                    .attr("height", 0.8 * window.innerHeight)
+                    .append("g").attr("transform", "translate(15,15)");
+
+                svg.append("defs")
+                   .append("marker")
+                   .attr("id", "arrow")
+                   .attr("viewBox", "0 -5 10 10")
+                   .attr("refX", 18)
+                   .attr("markerWidth", 6)
+                   .attr("markerHeight", 6)
+                   .attr("orient", "auto")
+                  .append("path")
+                   .style("fill", "black")
+                   .style("stroke", "none")
+                   .attr("d", "M0,-5L10,0L0,5");
+
+                updateGraph();
+        })();
+        </script>
+    </body>
+</html>
