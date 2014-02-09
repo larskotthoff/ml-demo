@@ -43,6 +43,20 @@ text {
         var color = d3.scale.ordinal()
             .domain(["yes", "no"])
             .range(["red", "blue"]);
+        var metadata = [];
+        metadata.push({ name: "temperature", label: "Temperature", datatype:
+            "string", editable: true, values: { "hot": "hot", "mild":
+                "mild", "cool": "cool" } });
+        metadata.push({ name: "humidity", label: "Humidity", datatype:
+            "string", editable: true, values: { "high": "high",
+                "normal": "nomal" } });
+        metadata.push({ name: "wind", label: "Wind", datatype: "string",
+            editable: true, values: { "weak": "weak", "strong": "strong" } });
+        metadata.push({ name: "class", label: "Play tennis", datatype:
+            "string", editable: true, values: { "yes": "yes", "no": "no" } });
+        metadata.push({ name: "action", label: " ", datatype: "html", editable: false });
+
+
 
         function changed(rowIndex, columnIndex, oldValue, newValue) { 
             data[table.getRowId(rowIndex)-1]
@@ -55,6 +69,26 @@ text {
             data.push(obj);
             table.append(id++, obj.values, true, true);
             updateGraph();
+        }
+
+        function deleteDatum(rowIndex) {
+            data.splice(table.getRowId(rowIndex)-1, 1);
+            id = 1;
+            data.forEach(function(d) {
+                d.id = id++;
+            });
+            setupTable();
+            updateGraph();
+        }
+
+        function setupTable() {
+            table.load({"metadata": metadata, "data": data});
+            table.setCellRenderer("action", new CellRenderer({render: function(cell, value) {
+                var rowId = table.getRowId(cell.rowIndex);
+                cell.innerHTML = "<a onclick=\"deleteDatum(" + cell.rowIndex + ");\" style=\"cursor:pointer\">" +
+                         "<img src=\"images/delete.png\" border=\"0\" alt=\"delete\" title=\"Delete row\"/></a>";
+            }}));
+            table.renderGrid("table", "grid");
         }
 
         function entropy(_data) {
@@ -267,52 +301,38 @@ text {
         }
 
         (function() {
-				var metadata = [];
-				metadata.push({ name: "temperature", label: "Temperature", datatype:
-                    "string", editable: true, values: { "hot": "hot", "mild":
-                        "mild", "cool": "cool" } });
-				metadata.push({ name: "humidity", label: "Humidity", datatype:
-                    "string", editable: true, values: { "high": "high",
-                        "normal": "nomal" } });
-				metadata.push({ name: "wind", label: "Wind", datatype: "string",
-                    editable: true, values: { "weak": "weak", "strong": "strong" } });
-				metadata.push({ name: "class", label: "Play tennis", datatype:
-                    "string", editable: true, values: { "yes": "yes", "no": "no" } });
+            data = [
+                { id: id++, values: { temperature: "hot", humidity: "high", wind: "weak", class: "no" } },
+                { id: id++, values: { temperature: "hot", humidity: "high", wind: "strong", class: "no" } },
+                { id: id++, values: { temperature: "hot", humidity: "normal", wind: "weak", class: "yes" } },
+                { id: id++, values: { temperature: "mild", humidity: "high", wind: "weak", class: "yes" } },
+                { id: id++, values: { temperature: "cool", humidity: "normal", wind: "weak", class: "yes" } },
+                { id: id++, values: { temperature: "cool", humidity: "normal", wind: "strong", class: "no" } },
+                { id: id++, values: { temperature: "cool", humidity: "normal", wind: "strong", class: "yes" } }
+            ];
 
+            table = new EditableGrid("TreeGrid", {modelChanged: changed});
+            setupTable();
 
-                data = [
-                    { id: id++, values: { temperature: "hot", humidity: "high", wind: "weak", class: "no" } },
-                    { id: id++, values: { temperature: "hot", humidity: "high", wind: "strong", class: "no" } },
-                    { id: id++, values: { temperature: "hot", humidity: "normal", wind: "weak", class: "yes" } },
-                    { id: id++, values: { temperature: "mild", humidity: "high", wind: "weak", class: "yes" } },
-                    { id: id++, values: { temperature: "cool", humidity: "normal", wind: "weak", class: "yes" } },
-                    { id: id++, values: { temperature: "cool", humidity: "normal", wind: "strong", class: "no" } },
-                    { id: id++, values: { temperature: "cool", humidity: "normal", wind: "strong", class: "yes" } }
-                ];
-		         
-                table = new EditableGrid("TreeGrid", {modelChanged: changed});
-				table.load({"metadata": metadata, "data": data});
-				table.renderGrid("table", "grid");
+            svg = d3.select("#graph").append("svg")
+                .attr("width", "100%")
+                .attr("height", 0.8 * window.innerHeight)
+                .append("g").attr("transform", "translate(15,35)");
 
-                svg = d3.select("#graph").append("svg")
-                    .attr("width", "100%")
-                    .attr("height", 0.8 * window.innerHeight)
-                    .append("g").attr("transform", "translate(15,35)");
+            svg.append("defs")
+               .append("marker")
+               .attr("id", "arrow")
+               .attr("viewBox", "0 -5 10 10")
+               .attr("refX", 34)
+               .attr("markerWidth", 6)
+               .attr("markerHeight", 6)
+               .attr("orient", "auto")
+              .append("path")
+               .style("fill", "black")
+               .style("stroke", "none")
+               .attr("d", "M0,-5L10,0L0,5");
 
-                svg.append("defs")
-                   .append("marker")
-                   .attr("id", "arrow")
-                   .attr("viewBox", "0 -5 10 10")
-                   .attr("refX", 34)
-                   .attr("markerWidth", 6)
-                   .attr("markerHeight", 6)
-                   .attr("orient", "auto")
-                  .append("path")
-                   .style("fill", "black")
-                   .style("stroke", "none")
-                   .attr("d", "M0,-5L10,0L0,5");
-
-                updateGraph();
+            updateGraph();
         })();
         </script>
     </body>
