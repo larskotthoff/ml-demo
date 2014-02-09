@@ -15,7 +15,6 @@ input.invalid { background: red; color: #FDFDFD; }
 path {
     fill: none;
     stroke: black;
-    stroke-width: 2px;
 }
 line {
     stroke: black;
@@ -34,6 +33,7 @@ text {
             <div style="width: 30%; float: left;">
                 <div id="table"></div>
                 <input type="button" value="Add datum" onclick="addDatum();">
+                <div id="overlay" style="position: relative; top: 20px; left: 20px;"></div>
             </div>
             <div id="graph" style="width: 70%; float: right;"></div>
         </div>
@@ -63,15 +63,16 @@ text {
                 classes[d.values.class].push(d);
             });
             var e = 0;
-            for(c in classes) {
+            for(var c in classes) {
                 var p = classes[c].length / _data.length;
                 e -= p * (Math.log(p) / Math.log(2));
             }
             return e;
         }
 
-        function entropyForAttributes(_data, attr) {
-            var ig = entropy(_data);
+        function entropyForAttribute(_data, attr) {
+            var e = entropy(_data),
+                ig = [e, "" + Math.round(100*e)/100];
 
             var values = {};
             _data.forEach(function(d) {
@@ -79,23 +80,42 @@ text {
                 values[d.values[attr]].push(d);
             });
 
-            for(v in values) {
-                ig -= values[v].length/_data.length * entropy(values[v]);
+            for(var v in values) {
+                ig[0] -= values[v].length/_data.length * entropy(values[v]);
+                ig[1] += " - (" + values[v].length + "/" + _data.length + ")" + Math.round(100*entropy(values[v]))/100;
             }
             return ig;
         }
 
-        function bestSplit(_data, attrs) {
+        function entropyForAttributes(_data, attrs) {
             var vals = [];
             for(var i = 0; i < attrs.length; i++) {
-                vals.push([attrs[i], entropyForAttributes(_data, attrs[i])]);
+                var e = entropyForAttribute(_data, attrs[i]);
+                vals.push([attrs[i], e[0], e[1]]);
             }
             return vals.sort(function(a, b) { return b[1] - a[1]; });
         }
 
+        Array.prototype.unique = function(){
+           var u = {}, a = [];
+           for(var i = 0, l = this.length; i < l; ++i){
+              if(u.hasOwnProperty(this[i])) {
+                 continue;
+              }
+              a.push(this[i]);
+              u[this[i]] = 1;
+           }
+           return a;
+        }
+
         function nextLevel(_data, attrs) {
-            if(attrs.length > 0) {
-                var t = bestSplit(data, attrs)[0][0];
+            var classes = _data.map(function(d) { return d.values.class; }).unique();
+            if(classes.length == 1) {
+                var level = { majClass: classes[0], data: _data };
+                return level;
+            } else if(attrs.length > 0) {
+                var es = entropyForAttributes(_data, attrs);
+                var t = es[0][0];
 
                 var partition = {};
                 _data.forEach(function(d) {
@@ -104,13 +124,15 @@ text {
                     partition[val].push(d);
                 });
 
-                var level = { children: [] };
+                var level = { es: es, data: _data, children: [] };
 
-                var newAttrs = JSON.parse(JSON.stringify(attrs));
-                newAttrs.splice(newAttrs.indexOf(t), 1);
-                for(val in partition) {
+                for(var val in partition) {
+                    var newAttrs = JSON.parse(JSON.stringify(attrs));
+                    newAttrs.splice(newAttrs.indexOf(t), 1);
                     var c = nextLevel(partition[val], newAttrs);
                     if(c) {
+                        c.data = partition[val];
+                        c.majClass = classDist(c.data)[0].key;
                         c.value = val;
                         c.attr = t;
                         level.children.push(c);
@@ -122,9 +144,18 @@ text {
             }
         }
 
+        function classDist(_data) {
+            var classes = {};
+            _data.forEach(function(d) {
+                if(!classes[d.values.class]) classes[d.values.class] = 0;
+                classes[d.values.class]++;
+            });
+            return d3.entries(classes).sort(function(a, b) { return b.value - a.value; });
+        }
+
         function updateGraph() {
             var width = window.innerWidth * 0.7 - 30,
-                height = window.innerHeight * 0.8 - 30;
+                height = window.innerHeight * 0.8 - 100;
 
             var attrs = Object.keys(data[0].values);
             attrs.splice(attrs.indexOf("class"), 1);
@@ -135,21 +166,47 @@ text {
             var nodes = treeL.nodes(tree),
                 links = treeL.links(nodes);
 
-            var node = svg.selectAll("circle.node").data(nodes);
+            var arc = d3.svg.arc()
+                .outerRadius(30)
+                .innerRadius(0);
 
-            node.enter().append("circle")
+            var pie = d3.layout.pie()
+                .value(function(d) { return d.value; });
+
+            var node = svg.selectAll("g.node").data(nodes);
+
+            var arcs = node.enter().append("g")
                 .attr("class", "node")
-                .attr("r", 10)
-                .style("fill", "blue");
+                .selectAll("path")
+                .data(function(d) { return pie(classDist(d.data)); });
 
-            node.attr("cx", function(d) { return d.x; })
-                .attr("cy", function(d) { return d.y; });
+            arcs.enter().append("path");
+            arcs.attr("d", arc)
+                .style("fill", function(d) { return color(d.data.key); });
+            arcs.exit().remove();
+
+            node.attr("transform", function(d) {
+                    return "translate(" + d.x + "," + d.y + ")";
+                })
+                .filter(function(d) { return d.children != null; })
+                .on("mouseover", function(d) {
+                    var html = "<table>";
+                    d.es.forEach(function(e) {
+                        html += "<tr><td>IG(" + e[0] + ")</td><td> = " + e[2] +
+                            "</td><td> = " + Math.round(100*e[1])/100 +
+                            "</td></tr>";
+                    });
+                    d3.select("#overlay").style("opacity", 1)
+                        .html(html + "</table>");
+                }).on("mouseout", function(d) {
+                    d3.select("#overlay").style("opacity", 0);
+                });
 
             node.exit().remove();
 
             var link = svg.selectAll("line.link").data(links);
 
-            link.enter().insert("line", "circle")
+            link.enter().insert("line", "g")
                 .attr("class", "link");
 
             link.attr("x1", function(d) { return d.source.x; })
@@ -181,6 +238,20 @@ text {
                 .text(function(d) { return d.target.attr + " = " + d.target.value; });
 
             labels.exit().remove();
+
+            var leafLabels = svg.selectAll("text.leaf")
+                    .data(nodes.filter(function(d) { return d.children == null; }));
+            leafLabels.enter().append("text")
+                .attr("text-anchor", "middle")
+                .attr("class", "leaf");
+
+            leafLabels
+                .attr("transform", function(d) {
+                    return "translate(" + d.x + "," + (d.y + 50) + ")";
+                }).text(function(d) { return d.majClass; });
+
+            leafLabels.exit().remove();
+
         }
 
         (function() {
@@ -202,7 +273,7 @@ text {
                         wind: "weak", class: "no" } },
                     { id: id++, values: { temperature: "hot", humidity: "high",
                         wind: "strong", class: "no" } },
-                    { id: id++, values: { temperature: "hot", humidity: "high",
+                    { id: id++, values: { temperature: "hot", humidity: "normal",
                         wind: "weak", class: "yes" } },
                     { id: id++, values: { temperature: "mild", humidity: "high",
                         wind: "weak", class: "yes" } },
@@ -221,13 +292,13 @@ text {
                 svg = d3.select("#graph").append("svg")
                     .attr("width", "100%")
                     .attr("height", 0.8 * window.innerHeight)
-                    .append("g").attr("transform", "translate(15,15)");
+                    .append("g").attr("transform", "translate(15,35)");
 
                 svg.append("defs")
                    .append("marker")
                    .attr("id", "arrow")
                    .attr("viewBox", "0 -5 10 10")
-                   .attr("refX", 18)
+                   .attr("refX", 34)
                    .attr("markerWidth", 6)
                    .attr("markerHeight", 6)
                    .attr("orient", "auto")
