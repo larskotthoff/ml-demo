@@ -38,7 +38,7 @@ text {
             <div id="graph" style="width: 70%; float: right;"></div>
         </div>
         <script type="text/javascript">
-        var id = 0,
+        var id = 1,
             table, svg, data;
         var color = d3.scale.ordinal()
             .domain(["yes", "no"])
@@ -47,10 +47,11 @@ text {
         function changed(rowIndex, columnIndex, oldValue, newValue) { 
             data[table.getRowId(rowIndex)]
                 .values[table.getColumnName(columnIndex)] = newValue;
+            updateGraph();
 		}
 
         function addDatum() {
-            var obj = {id: id, values: {t: "mild", h: "normal", w: "weak", class: "yes"} };
+            var obj = {id: id, values: {temperature: "mild", humidity: "normal", wind: "weak", class: "yes"} };
             data.push(obj);
             table.append(id++, obj.values, true, true);
             updateGraph();
@@ -175,9 +176,10 @@ text {
 
             var node = svg.selectAll("g.node").data(nodes);
 
-            var arcs = node.enter().append("g")
-                .attr("class", "node")
-                .selectAll("path")
+            node.enter().append("g")
+                .attr("class", "node");
+
+            var arcs = node.selectAll("path")
                 .data(function(d) { return pie(classDist(d.data)); });
 
             arcs.enter().append("path");
@@ -185,10 +187,11 @@ text {
                 .style("fill", function(d) { return color(d.data.key); });
             arcs.exit().remove();
 
-            node.attr("transform", function(d) {
+            node.transition()
+                .attr("transform", function(d) {
                     return "translate(" + d.x + "," + d.y + ")";
-                })
-                .filter(function(d) { return d.children != null; })
+            });
+            node.filter(function(d) { return d.children != null; })
                 .on("mouseover", function(d) {
                     var html = "<table>";
                     d.es.forEach(function(e) {
@@ -209,7 +212,8 @@ text {
             link.enter().insert("line", "g")
                 .attr("class", "link");
 
-            link.attr("x1", function(d) { return d.source.x; })
+            link.transition()
+                .attr("x1", function(d) { return d.source.x; })
                 .attr("x2", function(d) { return d.target.x; })
                 .attr("y1", function(d) { return d.source.y; })
                 .attr("y2", function(d) { return d.target.y; })
@@ -228,7 +232,7 @@ text {
                 .style("stroke-width", 3);
             labelG.append("text");
 
-            labels
+            labels.transition()
                 .attr("transform", function(d) {
                     var x = d.source.x + (d.target.x - d.source.x) * 4/5,
                         y = d.source.y + (d.target.y - d.source.y) * 4/5;
@@ -245,7 +249,7 @@ text {
                 .attr("text-anchor", "middle")
                 .attr("class", "leaf");
 
-            leafLabels
+            leafLabels.transition()
                 .attr("transform", function(d) {
                     return "translate(" + d.x + "," + (d.y + 50) + ")";
                 }).text(function(d) { return d.majClass; });
@@ -257,32 +261,25 @@ text {
         (function() {
 				var metadata = [];
 				metadata.push({ name: "temperature", label: "Temperature", datatype:
-                    "string", editable: true, value: { "hot": "hot", "mild":
+                    "string", editable: true, values: { "hot": "hot", "mild":
                         "mild", "cool": "cool" } });
 				metadata.push({ name: "humidity", label: "Humidity", datatype:
                     "string", editable: true, values: { "high": "high",
                         "normal": "nomal" } });
 				metadata.push({ name: "wind", label: "Wind", datatype: "string",
-                    editable: true, value: { "weak": "weak", "strong": "strong" } });
+                    editable: true, values: { "weak": "weak", "strong": "strong" } });
 				metadata.push({ name: "class", label: "Play tennis", datatype:
                     "string", editable: true, values: { "yes": "yes", "no": "no" } });
 
 
                 data = [
-                    { id: id++, values: { temperature: "hot", humidity: "high",
-                        wind: "weak", class: "no" } },
-                    { id: id++, values: { temperature: "hot", humidity: "high",
-                        wind: "strong", class: "no" } },
-                    { id: id++, values: { temperature: "hot", humidity: "normal",
-                        wind: "weak", class: "yes" } },
-                    { id: id++, values: { temperature: "mild", humidity: "high",
-                        wind: "weak", class: "yes" } },
-                    { id: id++, values: { temperature: "cool", humidity:
-                        "normal", wind: "weak", class: "yes" } },
-                    { id: id++, values: { temperature: "cool", humidity:
-                        "normal", wind: "strong", class: "no" } },
-                    { id: id++, values: { temperature: "cool", humidity:
-                        "normal", wind: "strong", class: "yes" } }
+                    { id: id++, values: { temperature: "hot", humidity: "high", wind: "weak", class: "no" } },
+                    { id: id++, values: { temperature: "hot", humidity: "high", wind: "strong", class: "no" } },
+                    { id: id++, values: { temperature: "hot", humidity: "normal", wind: "weak", class: "yes" } },
+                    { id: id++, values: { temperature: "mild", humidity: "high", wind: "weak", class: "yes" } },
+                    { id: id++, values: { temperature: "cool", humidity: "normal", wind: "weak", class: "yes" } },
+                    { id: id++, values: { temperature: "cool", humidity: "normal", wind: "strong", class: "no" } },
+                    { id: id++, values: { temperature: "cool", humidity: "normal", wind: "strong", class: "yes" } }
                 ];
 		         
                 table = new EditableGrid("TreeGrid", {modelChanged: changed});
