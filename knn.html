@@ -82,7 +82,7 @@ text {
         }
 
         function changed(rowIndex, columnIndex, oldValue, newValue) { 
-            data[table.getRowId(rowIndex)]
+            data[table.getRowId(rowIndex)-1]
                 .values[table.getColumnName(columnIndex)] = newValue;
 
             user.forEach(function(u) {
