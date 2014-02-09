@@ -177,7 +177,9 @@ text {
             var node = svg.selectAll("g.node").data(nodes);
 
             node.enter().append("g")
-                .attr("class", "node");
+                .attr("transform", function(d) {
+                    return "translate(" + d.x + "," + d.y + ")";
+                }).attr("class", "node");
 
             var arcs = node.selectAll("path")
                 .data(function(d) { return pie(classDist(d.data)); });
@@ -190,17 +192,19 @@ text {
             node.transition()
                 .attr("transform", function(d) {
                     return "translate(" + d.x + "," + d.y + ")";
-            });
-            node.filter(function(d) { return d.children != null; })
+                });
+            node
                 .on("mouseover", function(d) {
-                    var html = "<table>";
-                    d.es.forEach(function(e) {
-                        html += "<tr><td>IG(" + e[0] + ")</td><td> = " + e[2] +
-                            "</td><td> = " + Math.round(100*e[1])/100 +
-                            "</td></tr>";
-                    });
-                    d3.select("#overlay").style("opacity", 1)
-                        .html(html + "</table>");
+                    if(d.es) {
+                        var html = "<table>";
+                        d.es.forEach(function(e) {
+                            html += "<tr><td>IG(" + e[0] + ")</td><td> = " + e[2] +
+                                "</td><td> = " + Math.round(100*e[1])/100 +
+                                "</td></tr>";
+                        });
+                        d3.select("#overlay").style("opacity", 1)
+                            .html(html + "</table>");
+                    }
                 }).on("mouseout", function(d) {
                     d3.select("#overlay").style("opacity", 0);
                 });
