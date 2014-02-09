@@ -45,6 +45,13 @@ text {
         var color = d3.scale.ordinal()
             .domain(["one", "two", "three"])
             .range(["red", "blue", "green"]);
+        var metadata = [];
+        metadata.push({ name: "x", label: "x", datatype: "integer", editable: true});
+        metadata.push({ name: "y", label: "y", datatype: "integer", editable: true});
+        metadata.push({ name: "class", label: "class", datatype: "string", editable: true});
+        metadata.push({ name: "action", label: " ", datatype: "html", editable: false });
+        metadata[2].values = {"one": "one", "two": "two", "three": "three"};
+
 
         function distance(ground, q) {
             return Math.sqrt(Math.pow(ground.values.x - q.x, 2)
@@ -96,6 +103,26 @@ text {
             data.push(obj);
             table.append(id++, obj.values, true, true);
             updateGraph();
+        }
+
+        function deleteDatum(rowIndex) {
+            data.splice(table.getRowId(rowIndex)-1, 1);
+            id = 1;
+            data.forEach(function(d) {
+                d.id = id++;
+            });
+            setupTable();
+            updateGraph();
+        }
+
+        function setupTable() {
+            table.load({"metadata": metadata, "data": data});
+            table.setCellRenderer("action", new CellRenderer({render: function(cell, value) {
+                var rowId = table.getRowId(cell.rowIndex);
+                cell.innerHTML = "<a onclick=\"deleteDatum(" + cell.rowIndex + ");\" style=\"cursor:pointer\">" +
+                         "<img src=\"images/delete.png\" border=\"0\" alt=\"delete\" title=\"Delete row\"/></a>";
+            }}));
+            table.renderGrid("table", "grid");
         }
 
         function updateGraph() {
@@ -194,50 +221,41 @@ text {
         }
 
         (function() {
-				var metadata = [];
-				metadata.push({ name: "x", label: "x", datatype: "integer", editable: true});
-				metadata.push({ name: "y", label: "y", datatype: "integer", editable: true});
-				metadata.push({ name: "class", label: "class", datatype: "string", editable: true});
+            data = [
+                { id: id++, values: { x: 1, y: 2, class: "one" } },
+                { id: id++, values: { x: 5, y: 4, class: "one" } },
+                { id: id++, values: { x: 0, y: 10, class: "two" } },
+                { id: id++, values: { x: 4, y: 8, class: "two" } },
+                { id: id++, values: { x: 7, y: 3, class: "three" } }
+            ];
 
-				metadata[2].values = {"one": "one", "two": "two", "three":
-                    "three"};
+            table = new EditableGrid("kNNGrid", {modelChanged: changed});
+            setupTable();
 
-                data = [
-                    { id: id++, values: { x: 1, y: 2, class: "one" } },
-                    { id: id++, values: { x: 5, y: 4, class: "one" } },
-                    { id: id++, values: { x: 0, y: 10, class: "two" } },
-                    { id: id++, values: { x: 4, y: 8, class: "two" } },
-                    { id: id++, values: { x: 7, y: 3, class: "three" } }
-                ];
-		         
-                table = new EditableGrid("kNNGrid", {modelChanged: changed});
-				table.load({"metadata": metadata, "data": data});
-				table.renderGrid("table", "grid");
+            svg = d3.select("#graph").append("svg")
+                .attr("width", "100%")
+                .attr("height", 0.8 * window.innerHeight);
 
-                svg = d3.select("#graph").append("svg")
-                    .attr("width", "100%")
-                    .attr("height", 0.8 * window.innerHeight);
+            svg.append("defs")
+               .selectAll("marker").data(color.domain())
+               .enter().append("marker")
+               .attr("id", function(d) { return "arrow-" + d; })
+               .attr("viewBox", "0 -5 10 10")
+               .attr("refX", 18)
+               .attr("markerWidth", 6)
+               .attr("markerHeight", 6)
+               .attr("orient", "auto")
+              .append("path")
+               .style("fill", function(d) { return color(d); })
+               .style("stroke", "none")
+               .attr("d", "M0,-5L10,0L0,5");
 
-                svg.append("defs")
-                   .selectAll("marker").data(color.domain())
-                   .enter().append("marker")
-                   .attr("id", function(d) { return "arrow-" + d; })
-                   .attr("viewBox", "0 -5 10 10")
-                   .attr("refX", 18)
-                   .attr("markerWidth", 6)
-                   .attr("markerHeight", 6)
-                   .attr("orient", "auto")
-                  .append("path")
-                   .style("fill", function(d) { return color(d); })
-                   .style("stroke", "none")
-                   .attr("d", "M0,-5L10,0L0,5");
+            arrows = svg.append("g");
 
-                arrows = svg.append("g");
+            svg.append("g").classed("xaxis", true);
+            svg.append("g").classed("yaxis", true);
 
-                svg.append("g").classed("xaxis", true);
-                svg.append("g").classed("yaxis", true);
-
-                updateGraph();
+            updateGraph();
         })();
         </script>
     </body>
