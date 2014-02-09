@@ -195,16 +195,20 @@ text {
                 });
             node
                 .on("mouseover", function(d) {
+                    var html = "<table>";
+                    classDist(d.data).forEach(function(e) {
+                        html += "<tr><td>" + e.key + ":</td><td>" + e.value + "</td></tr>";
+                    });
+                    html += "<tr><td>&nbsp;</td></tr>";
                     if(d.es) {
-                        var html = "<table>";
                         d.es.forEach(function(e) {
                             html += "<tr><td>IG(" + e[0] + ")</td><td> = " + e[2] +
                                 "</td><td> = " + Math.round(100*e[1])/100 +
                                 "</td></tr>";
                         });
-                        d3.select("#overlay").style("opacity", 1)
-                            .html(html + "</table>");
                     }
+                    d3.select("#overlay").style("opacity", 1)
+                        .html(html + "</table>");
                 }).on("mouseout", function(d) {
                     d3.select("#overlay").style("opacity", 0);
                 });
