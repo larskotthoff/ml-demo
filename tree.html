@@ -229,6 +229,8 @@ text {
                 });
             node
                 .on("mouseover", function(d) {
+                    d3.selectAll("g.node").attr("filter", "");
+                    d3.select(this).attr("filter", "url(#filter)");
                     var html = "<table>";
                     classDist(d.data).forEach(function(e) {
                         html += "<tr><td>" + e.key + ":</td><td>" + e.value + "</td></tr>";
@@ -243,8 +245,6 @@ text {
                     }
                     d3.select("#overlay").style("opacity", 1)
                         .html(html + "</table>");
-                }).on("mouseout", function(d) {
-                    d3.select("#overlay").style("opacity", 0);
                 });
 
             node.exit().remove();
@@ -319,8 +319,8 @@ text {
                 .attr("height", 0.8 * window.innerHeight)
                 .append("g").attr("transform", "translate(15,35)");
 
-            svg.append("defs")
-               .append("marker")
+            var defs = svg.append("defs");
+            defs.append("marker")
                .attr("id", "arrow")
                .attr("viewBox", "0 -5 10 10")
                .attr("refX", 34)
@@ -331,6 +331,21 @@ text {
                .style("fill", "black")
                .style("stroke", "none")
                .attr("d", "M0,-5L10,0L0,5");
+            var f = defs.append("filter")
+                .attr("id", "filter");
+            f.append("feOffset")
+                .attr("result", "offOut")
+                .attr("in", "SourceAlpha")
+                .attr("dx", 2)
+                .attr("dy", 2);
+            f.append("feGaussianBlur")
+                .attr("result", "blurOut")
+                .attr("in", "offOut")
+                .attr("stdDeviation", 3);
+            f.append("feBlend")
+                .attr("in", "SourceGraphic")
+                .attr("in2", "blurOut")
+                .attr("mode", "normal");
 
             updateGraph();
         })();
