@@ -276,26 +276,30 @@ text {
 
             link.exit().remove();
 
-            var labels = svg.selectAll("g.label").data(links);
-
-            var labelG = labels.enter().append("g")
+            var labels = svg.selectAll("text.label-back").data(links);
+            labels.enter().append("text")
                 .attr("text-anchor", "middle")
-                .attr("class", "label");
-
-            labelG.append("text")
                 .style("stroke", "white")
-                .style("stroke-width", 3);
-            labelG.append("text");
-
+                .style("stroke-width", 3)
+                .attr("class", "label-back");
             labels.transition()
                 .attr("transform", function(d) {
                     var x = d.source.x + (d.target.x - d.source.x) * 4/5,
                         y = d.source.y + (d.target.y - d.source.y) * 4/5;
                     return "translate(" + x + "," + y + ")";
-                });
-            labels.selectAll("text")
-                .text(function(d) { return d.target.attr + " = " + d.target.value; });
+                }).text(function(d) { return d.target.attr + " = " + d.target.value; });
+            labels.exit().remove();
 
+            labels = svg.selectAll("text.label-front").data(links);
+            labels.enter().append("text")
+                .attr("text-anchor", "middle")
+                .attr("class", "label-front");
+            labels.transition()
+                .attr("transform", function(d) {
+                    var x = d.source.x + (d.target.x - d.source.x) * 4/5,
+                        y = d.source.y + (d.target.y - d.source.y) * 4/5;
+                    return "translate(" + x + "," + y + ")";
+                }).text(function(d) { return d.target.attr + " = " + d.target.value; });
             labels.exit().remove();
 
             var leafLabels = svg.selectAll("text.leaf")
