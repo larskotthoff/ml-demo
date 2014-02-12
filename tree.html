@@ -188,7 +188,14 @@ text {
             return d3.entries(classes).sort(function(a, b) { return b.value - a.value; });
         }
 
+        function clearOverlay() {
+            d3.selectAll("g.node").attr("filter", "");
+            d3.select("#overlay").style("opacity", 0);
+            d3.select("tbody").selectAll("tr").style("background-color", "");
+        }
+
         function updateGraph() {
+            clearOverlay();
             var width = window.innerWidth * 0.7 - 30,
                 height = window.innerHeight * 0.8 - 100;
 
@@ -229,6 +236,7 @@ text {
                 });
             node
                 .on("mouseover", function(d) {
+                    d3.select("tbody").selectAll("tr").style("background-color", "");
                     d3.selectAll("g.node").attr("filter", "");
                     d3.select(this).attr("filter", "url(#filter)");
                     var html = "<table>";
@@ -245,6 +253,11 @@ text {
                     }
                     d3.select("#overlay").style("opacity", 1)
                         .html(html + "</table>");
+
+                    d.data.forEach(function(d) {
+                        d3.select(table.getRow(table.getRowIndex(d.id)))
+                            .style("background-color", "yellow");
+                    });
                 });
 
             node.exit().remove();
