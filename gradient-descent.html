@@ -5,6 +5,7 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
         <script type="text/javascript" src="d3.v3.min.js" charset="utf-8"></script>
         <script type="text/javascript" src="editablegrid-2.0.1.js"></script>
+        <script type="text/javascript" src="MathJax.js?config=TeX-AMS_HTML-full"></script>
         <script type="text/css" src="editablegrid-2.0.1.css"></script>
         <style type="text/css"> 
 table.grid { border-collapse: collapse; border: 1px solid #CCB; width: 100%; }
@@ -44,12 +45,13 @@ text {
                 </div>
                 <div id="table"></div>
                 <input type="button" value="Add datum" onclick="addDatum();">
-                <div id="overlay" style="position: relative; top: 20px; left: 20px;"></div>
+                <div style="position: relative; top: 20px; left: 20px;">\(y = \beta_1 \cdot x + \beta_0\)</div>
+                <div id="overlay" style="position: relative; top: 40px; left: 20px;"></div>
             </div>
             <div id="graph" style="width: 70%; float: right;"></div>
         </div>
         <script type="text/javascript">
-        var id = 1,
+        var id = 1, converged = false, iteration = 0,
             lr = +d3.select("#lr").node().value,
             beta0, beta1,
             table, svg, data;
@@ -66,21 +68,49 @@ text {
         function init() {
             d3.select("#step").attr("disabled", null);
             beta0 = 0;
-            beta1 = Math.round(Math.random() * 10);
+            beta1 = 0;
+            converged = false;
+            iteration = 1;
+            clearOverlay();
+                
+            var rss = d3.sum(data, function(d) { return Math.pow(d.values.y - (beta1 * d.values.x + beta0), 2) });
+
+            d3.select("#overlay").style("opacity", 1)
+                .html("\\(\\beta_0 = " + beta0 + "\\)<br/>" +
+                "\\(\\beta_1 = " + beta1 + "\\)<br/>" +
+                "\\(RSS = " + rss + "\\)");
+            MathJax.Hub.Queue(["Typeset",MathJax.Hub]);
+
             updateGraph();
         }
 
         function gradStep() {
-            beta0p = beta0 + lr * 2 *
-                d3.sum(data, function(d) { return d.values.y - (beta1 * d.values.x + beta0); })
-            beta1p = beta1 + lr * 2 *
-                d3.sum(data, function(d) { return (d.values.y - (beta1 * d.values.x + beta0)) * d.values.x; })
-            if(Math.abs(beta0p - beta0) < 1e-3 && Math.abs(beta1p - beta1) < 1e-3) {
-                console.log("convergence");
+            if(!converged) {
+                var beta0grad = d3.sum(data, function(d) { return (d.values.y - (beta1 * d.values.x + beta0)); });
+                beta0p = beta0 + lr * 2 * beta0grad;
+                var beta1grad = d3.sum(data, function(d) { return (d.values.y - (beta1 * d.values.x + beta0)) * d.values.x; });
+                beta1p = beta1 + lr * 2 * beta1grad;
+                if(Math.abs(beta0p - beta0) < 1e-3 && Math.abs(beta1p - beta1) < 1e-3) {
+                    converged = true;
+                }
+                beta0 = beta0p;
+                beta1 = beta1p;
+
+                var newrss = d3.sum(data, function(d) { return Math.pow(d.values.y - (beta1 * d.values.x + beta0), 2) });
+
+                d3.select("#overlay")
+                    .html("Iteration " + iteration + "<br/>" +
+                    "\\(\\nabla RSS \\beta_0 = " + beta0grad + "\\)<br/>" +
+                    "\\(\\nabla RSS \\beta_1 = " + beta1grad + "\\)<br/>" +
+                    "\\(\\beta_0 = " + beta0 + "\\)<br/>" +
+                    "\\(\\beta_1 = " + beta1 + "\\)<br/>" +
+                    "\\(RSS = " + newrss + "\\)<br/>" +
+                    "converged: " + converged);
+                MathJax.Hub.Queue(["Typeset",MathJax.Hub]);
+
+                iteration++;
+                updateGraph();
             }
-            beta0 = beta0p;
-            beta1 = beta1p;
-            updateGraph();
         }
 
         function getCoord(xs) {
@@ -121,13 +151,11 @@ text {
         }
 
         function clearOverlay() {
-            d3.selectAll("g.node").attr("filter", "");
             d3.select("#overlay").style("opacity", 0);
             d3.select("tbody").selectAll("tr").style("background-color", "");
         }
 
         function updateGraph() {
-            clearOverlay();
             var width = window.innerWidth * 0.7 - 50,
                 height = window.innerHeight * 0.8 - 80;
 
