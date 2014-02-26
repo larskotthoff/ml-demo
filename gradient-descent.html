@@ -42,6 +42,8 @@ text {
                 <br/>
                 <label>Learning rate = </label>
                 <input type="text" id="lr" size=4 value="0.001" onchange="changeLR()">
+                <label>Initial \(\beta_1\) = </label>
+                <input type="text" id="beta" size=1 value="0" onchange="changeBeta()">
                 </div>
                 <div id="table"></div>
                 <input type="button" value="Add datum" onclick="addDatum();">
@@ -52,13 +54,20 @@ text {
         </div>
         <script type="text/javascript">
         var id = 1, converged = false, iteration = 0,
-            lr = +d3.select("#lr").node().value,
+            lr, beta,
             beta0, beta1,
             table, svg, data;
 
         function changeLR() {
             lr = +d3.select("#lr").node().value;
         }
+
+        function changeBeta() {
+            beta = +d3.select("#beta").node().value;
+        }
+
+        changeLR();
+        changeBeta();
 
         var metadata = [];
         metadata.push({ name: "x", label: "x", datatype: "double(,1,dot,comma,1)", editable: true });
@@ -68,7 +77,7 @@ text {
         function init() {
             d3.select("#step").attr("disabled", null);
             beta0 = 0;
-            beta1 = 0;
+            beta1 = beta;
             converged = false;
             iteration = 1;
             clearOverlay();
