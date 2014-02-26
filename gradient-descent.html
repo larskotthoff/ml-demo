@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Gradient descent</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+        <script type="text/javascript" src="d3.v3.min.js" charset="utf-8"></script>
+        <script type="text/javascript" src="editablegrid-2.0.1.js"></script>
+        <script type="text/css" src="editablegrid-2.0.1.css"></script>
+        <style type="text/css"> 
+table.grid { border-collapse: collapse; border: 1px solid #CCB; width: 100%; }
+table.grid td, table.grid th { padding: 5px; border: 1px solid #E0E0E0; }
+table.grid th { background: #E5E5E5; text-align: left; }
+input.invalid { background: red; color: #FDFDFD; }
+
+path {
+    fill: none;
+    stroke: black;
+}
+line {
+    stroke: black;
+}
+
+text {
+    font-size: 18px;
+}
+
+.reg {
+    stroke: steelblue;
+    stroke-width: 2;
+}
+        </style>
+    </head>
+
+    <body>
+        <h1>Gradient descent</h1>
+        <div>
+            <div style="width: 30%; float: left;">
+                <div>
+                <input type="button" id="init" value="Intialise" onclick="init()">
+                <input type="button" id="step" value="Step" disabled="true" onclick="gradStep()">
+                <br/>
+                <label>Learning rate = </label>
+                <input type="text" id="lr" size=4 value="0.001" onchange="changeLR()">
+                </div>
+                <div id="table"></div>
+                <input type="button" value="Add datum" onclick="addDatum();">
+                <div id="overlay" style="position: relative; top: 20px; left: 20px;"></div>
+            </div>
+            <div id="graph" style="width: 70%; float: right;"></div>
+        </div>
+        <script type="text/javascript">
+        var id = 1,
+            lr = +d3.select("#lr").node().value,
+            beta0, beta1,
+            table, svg, data;
+
+        function changeLR() {
+            lr = +d3.select("#lr").node().value;
+        }
+
+        var metadata = [];
+        metadata.push({ name: "x", label: "x", datatype: "double(,1,dot,comma,1)", editable: true });
+        metadata.push({ name: "y", label: "y", datatype: "double(,1,dot,comma,1)", editable: true });
+        metadata.push({ name: "action", label: " ", datatype: "html", editable: false });
+
+        function init() {
+            d3.select("#step").attr("disabled", null);
+            beta0 = 0;
+            beta1 = Math.round(Math.random() * 10);
+            updateGraph();
+        }
+
+        function gradStep() {
+            beta0p = beta0 + lr * 2 *
+                d3.sum(data, function(d) { return d.values.y - (beta1 * d.values.x + beta0); })
+            beta1p = beta1 + lr * 2 *
+                d3.sum(data, function(d) { return (d.values.y - (beta1 * d.values.x + beta0)) * d.values.x; })
+            if(Math.abs(beta0p - beta0) < 1e-3 && Math.abs(beta1p - beta1) < 1e-3) {
+                console.log("convergence");
+            }
+            beta0 = beta0p;
+            beta1 = beta1p;
+            updateGraph();
+        }
+
+        function getCoord(xs) {
+            return xs.map(function(x) { return {x: x, y: beta1 * x + beta0}; });
+        }
+
+        function changed(rowIndex, columnIndex, oldValue, newValue) { 
+            data[table.getRowId(rowIndex)-1]
+                .values[table.getColumnName(columnIndex)] = newValue;
+            updateGraph();
+		}
+
+        function addDatum() {
+            var obj = {id: id, values: {x: 0, y: 0}}
+            data.push(obj);
+            table.append(id++, obj.values, true, true);
+            updateGraph();
+        }
+
+        function deleteDatum(rowIndex) {
+            data.splice(table.getRowId(rowIndex)-1, 1);
+            id = 1;
+            data.forEach(function(d) {
+                d.id = id++;
+            });
+            setupTable();
+            updateGraph();
+        }
+
+        function setupTable() {
+            table.load({"metadata": metadata, "data": data});
+            table.setCellRenderer("action", new CellRenderer({render: function(cell, value) {
+                var rowId = table.getRowId(cell.rowIndex);
+                cell.innerHTML = "<a onclick=\"deleteDatum(" + cell.rowIndex + ");\" style=\"cursor:pointer\">" +
+                         "<img src=\"images/delete.png\" border=\"0\" alt=\"delete\" title=\"Delete row\"/></a>";
+            }}));
+            table.renderGrid("table", "grid");
+        }
+
+        function clearOverlay() {
+            d3.selectAll("g.node").attr("filter", "");
+            d3.select("#overlay").style("opacity", 0);
+            d3.select("tbody").selectAll("tr").style("background-color", "");
+        }
+
+        function updateGraph() {
+            clearOverlay();
+            var width = window.innerWidth * 0.7 - 50,
+                height = window.innerHeight * 0.8 - 80;
+
+            var xscale = d3.scale.linear()
+                    .domain(d3.extent(data, function(d) { return d.values.x; }))
+                    .range([40, width]).nice(),
+                yscale = d3.scale.linear()
+                    .domain(d3.extent(data, function(d) { return d.values.y; }))
+                    .range([height-10, 0]).nice();
+
+            if(svg.select("g.x.axis").empty()) {
+                svg.append("g").attr("class", "x axis")
+                    .attr("transform", "translate(0," + height + ")");
+                svg.append("g").attr("class", "y axis")
+                    .attr("transform", "translate(30,0)");
+            }
+
+            svg.select("g.x.axis").call(d3.svg.axis().scale(xscale).orient("bottom"));
+            svg.select("g.y.axis").call(d3.svg.axis().scale(yscale).orient("left"));
+
+            var points = svg.selectAll("circle").data(data);
+            points.enter().append("circle")
+                .attr("r", 7)
+                .style("fill", "steelblue");
+
+            points.attr("cx", function(d) { return xscale(d.values.x); })
+                .attr("cy", function(d) { return yscale(d.values.y); });
+
+            points.exit().remove();
+
+            if(beta0 !== undefined) {
+                var line = d3.svg.line().x(function(d) { return xscale(d.x); })
+                        .y(function(d) { return yscale(d.y); });
+
+                var path = svg.selectAll("path.reg").data([getCoord(xscale.ticks(100))]);
+                path.enter().append("path").attr("class", "reg");
+                path.attr("d", line);
+                path.exit().remove();
+            }
+        }
+
+        (function() {
+            data = [
+                { id: id++, values: { x: 1, y: 1}},
+                { id: id++, values: { x: 1.5, y: 2}},
+                { id: id++, values: { x: 0, y: 0.5}},
+                { id: id++, values: { x: 10, y: 9.5}},
+                { id: id++, values: { x: 8, y: 10}},
+                { id: id++, values: { x: 5, y: 3}}
+            ];
+
+            table = new EditableGrid("GradientGrid", {modelChanged: changed});
+            setupTable();
+
+            svg = d3.select("#graph").append("svg")
+                .attr("width", "100%")
+                .attr("height", 0.8 * window.innerHeight)
+                .append("g").attr("transform", "translate(15,35)");
+
+            updateGraph();
+        })();
+        </script>
+    </body>
+</html>
