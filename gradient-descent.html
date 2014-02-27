@@ -5,7 +5,8 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
         <script type="text/javascript" src="d3.v3.min.js" charset="utf-8"></script>
         <script type="text/javascript" src="editablegrid-2.0.1.js"></script>
-        <script type="text/javascript" src="MathJax.js?config=TeX-AMS_HTML-full"></script>
+        <!--<script type="text/javascript" src="MathJax.js?config=TeX-AMS_HTML-full"></script>-->
+        <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
         <script type="text/css" src="editablegrid-2.0.1.css"></script>
         <style type="text/css"> 
 table.grid { border-collapse: collapse; border: 1px solid #CCB; width: 100%; }
@@ -82,12 +83,12 @@ text {
             iteration = 1;
             clearOverlay();
                 
-            var rss = d3.sum(data, function(d) { return Math.pow(d.values.y - (beta1 * d.values.x + beta0), 2) });
+            var sse = d3.sum(data, function(d) { return Math.pow(d.values.y - (beta1 * d.values.x + beta0), 2) });
 
             d3.select("#overlay").style("opacity", 1)
                 .html("\\(\\beta_0 = " + beta0 + "\\)<br/>" +
                 "\\(\\beta_1 = " + beta1 + "\\)<br/>" +
-                "\\(RSS = " + rss + "\\)");
+                "\\(SSE = " + sse + "\\)");
             MathJax.Hub.Queue(["Typeset",MathJax.Hub]);
 
             updateGraph();
@@ -105,15 +106,15 @@ text {
                 beta0 = beta0p;
                 beta1 = beta1p;
 
-                var newrss = d3.sum(data, function(d) { return Math.pow(d.values.y - (beta1 * d.values.x + beta0), 2) });
+                var sse = d3.sum(data, function(d) { return Math.pow(d.values.y - (beta1 * d.values.x + beta0), 2) });
 
                 d3.select("#overlay")
                     .html("Iteration " + iteration + "<br/>" +
-                    "\\(\\nabla RSS \\beta_0 = " + beta0grad + "\\)<br/>" +
-                    "\\(\\nabla RSS \\beta_1 = " + beta1grad + "\\)<br/>" +
+                    "\\(\\nabla SSE \\beta_0 = " + beta0grad + "\\)<br/>" +
+                    "\\(\\nabla SSE \\beta_1 = " + beta1grad + "\\)<br/>" +
                     "\\(\\beta_0 = " + beta0 + "\\)<br/>" +
                     "\\(\\beta_1 = " + beta1 + "\\)<br/>" +
-                    "\\(RSS = " + newrss + "\\)<br/>" +
+                    "\\(SSE = " + sse + "\\)<br/>" +
                     "converged: " + converged);
                 MathJax.Hub.Queue(["Typeset",MathJax.Hub]);
 
@@ -191,7 +192,29 @@ text {
                 .style("fill", "steelblue");
 
             points.attr("cx", function(d) { return xscale(d.values.x); })
-                .attr("cy", function(d) { return yscale(d.values.y); });
+                .attr("cy", function(d) { return yscale(d.values.y); })
+                .on("mouseover", function(d) {
+                    if(beta0 !== undefined) {
+                        var pred = beta1 * d.values.x + beta0;
+                        var p = svg.append("g").attr("class", "pointer");
+                        p.append("line")
+                            .attr("marker-end", "url(#arrow)")
+                            .style("stroke", "steelblue")
+                            .style("stroke-width", 2)
+                            .attr("x1", xscale(d.values.x))
+                            .attr("y1", yscale(d.values.y))
+                            .attr("x2", xscale(d.values.x))
+                            .attr("y2", yscale(pred));
+                        p.append("text")
+                            .attr("text-anchor", "middle")
+                            .attr("x", xscale(d.values.x))
+                            .attr("y", yscale(d.values.y) + (pred > d.values.y ? 25 : -15))
+                            .text("" + (d.values.y - pred));
+                    }
+                })
+                .on("mouseout", function() {
+                    svg.select(".pointer").remove();
+                });
 
             points.exit().remove();
 
@@ -223,6 +246,19 @@ text {
                 .attr("width", "100%")
                 .attr("height", 0.8 * window.innerHeight)
                 .append("g").attr("transform", "translate(15,35)");
+
+            svg.append("defs")
+               .append("marker")
+               .attr("id", "arrow")
+               .attr("viewBox", "0 -5 10 10")
+               .attr("refX", 10)
+               .attr("markerWidth", 6)
+               .attr("markerHeight", 6)
+               .attr("orient", "auto")
+              .append("path")
+               .style("fill", "steelblue")
+               .style("stroke", "none")
+               .attr("d", "M0,-5L10,0L0,5");
 
             updateGraph();
         })();
