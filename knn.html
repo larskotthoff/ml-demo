@@ -170,8 +170,12 @@ text {
                 .style("fill", function(d) { return color(d.class); });
 
             circles
-                .on("mouseout", function() { arrows.selectAll("*").remove(); })
+                .on("mouseout", function() {
+                    arrows.selectAll("*").remove();
+                    circleG.node().appendChild(this);
+                })
                 .on("mouseover", function(d) {
+                    svg.node().appendChild(this);
                     for(var i = 0; i < n; i++) {
                         arrows.append("line")
                             .attr("x1", xscale(d.distances[i].x))
