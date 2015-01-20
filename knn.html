@@ -41,7 +41,7 @@ text {
         </div>
         <script type="text/javascript">
         var id = 1, n = +d3.select("#n").node().value, user = [],
-            table, svg, arrows, data;
+            table, svg, circleG, arrows, data;
         var color = d3.scale.ordinal()
             .domain(["one", "two", "three"])
             .range(["red", "blue", "green"]);
@@ -142,7 +142,7 @@ text {
                 .domain([yex[0] - 1, yex[1] + 1])
                 .range([height - bottom, top]);
 
-            var circles = svg.selectAll("circle.ground")
+            var circles = circleG.selectAll("circle.ground")
                 .data(data, function(d) { return d.id; });
 
             circles.enter().append("circle")
@@ -158,7 +158,7 @@ text {
 
             circles.exit().remove();
 
-            circles = svg.selectAll("circle.user").data(user);
+            circles = circleG.selectAll("circle.user").data(user);
 
             circles.enter().append("circle")
                 .classed("user", true)
@@ -250,6 +250,7 @@ text {
                .style("stroke", "none")
                .attr("d", "M0,-5L10,0L0,5");
 
+            circleG = svg.append("g");
             arrows = svg.append("g");
 
             svg.append("g").classed("xaxis", true);
