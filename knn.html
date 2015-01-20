@@ -158,7 +158,8 @@ text {
 
             circles.exit().remove();
 
-            circles = circleG.selectAll("circle.user").data(user);
+            circles = circleG.selectAll("circle.user")
+                .data(user, function(d) { return "" + d.x + d.y; });
 
             circles.enter().append("circle")
                 .classed("user", true)
