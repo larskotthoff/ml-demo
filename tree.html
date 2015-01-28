@@ -21,8 +21,8 @@ line {
     stroke-width: 2px;
 }
 
-text {
-    font-size: 18px;
+text, table {
+    font-size: 14px;
 }
         </style>
     </head>
@@ -246,7 +246,7 @@ text {
                     html += "<tr><td>&nbsp;</td></tr>";
                     if(d.es) {
                         d.es.forEach(function(e) {
-                            html += "<tr><td>IG(" + e[0] + ")</td><td> = " + e[2] +
+                            html += "<tr style='vertical-align: top'><td>IG(" + e[0].substr(0, 4) + ")</td><td> = " + e[2] +
                                 "</td><td> = " + Math.round(100*e[1])/100 +
                                 "</td></tr>";
                         });
@@ -276,31 +276,29 @@ text {
 
             link.exit().remove();
 
-            var labels = svg.selectAll("text.label-back").data(links);
-            labels.enter().append("text")
+            var labelGs = svg.selectAll("g.label").data(links),
+                labelGe = labelGs.enter().append("g").attr("class", "label");
+
+
+            labelGe.append("text")
                 .attr("text-anchor", "middle")
                 .style("stroke", "white")
                 .style("stroke-width", 3)
                 .attr("class", "label-back");
-            labels.transition()
-                .attr("transform", function(d) {
-                    var x = d.source.x + (d.target.x - d.source.x) * 4/5,
-                        y = d.source.y + (d.target.y - d.source.y) * 4/5;
-                    return "translate(" + x + "," + y + ")";
-                }).text(function(d) { return d.target.attr + " = " + d.target.value; });
-            labels.exit().remove();
-
-            labels = svg.selectAll("text.label-front").data(links);
-            labels.enter().append("text")
+            labelGe.append("text")
                 .attr("text-anchor", "middle")
                 .attr("class", "label-front");
-            labels.transition()
-                .attr("transform", function(d) {
-                    var x = d.source.x + (d.target.x - d.source.x) * 4/5,
-                        y = d.source.y + (d.target.y - d.source.y) * 4/5;
+
+            labelGs.transition()
+                .attr("transform", function(d, i) {
+                    var x = d.source.x + (d.target.x - d.source.x) * 7/10,
+                        y = d.source.y + (d.target.y - d.source.y) * 7/10 -
+                            (i % 2 ? 0 : 20);
                     return "translate(" + x + "," + y + ")";
-                }).text(function(d) { return d.target.attr + " = " + d.target.value; });
-            labels.exit().remove();
+                });
+            labelGs.selectAll("text").text(function(d) { return d.target.attr + " = " + d.target.value; });
+
+            labelGs.exit().remove();
 
             var leafLabels = svg.selectAll("text.leaf")
                     .data(nodes.filter(function(d) { return d.children == null; }));
